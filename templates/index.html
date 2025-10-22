@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nelson's Block Agent Debug Tool</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-main: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #475569;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        header {
+            background: var(--bg-secondary);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+            border: 1px solid #059669;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 15px;
+        }
+        
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .tabs {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover {
+            background: var(--bg-card);
+        }
+        
+        .tab.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .tab-content {
+            flex: 1;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .session-card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .session-card:hover {
+            border-color: var(--primary);
+        }
+        
+        .session-card.active {
+            border-color: var(--primary);
+            background: rgba(37, 99, 235, 0.1);
+        }
+        
+        .session-id {
+            font-size: 0.75rem;
+            font-family: monospace;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .session-stats {
+            display: flex;
+            gap: 10px;
+            font-size: 0.8rem;
+        }
+        
+        .timeline-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        
+        .timeline-entry {
+            background: var(--bg-card);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--border);
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+        
+        .timeline-entry.smartflow {
+            border-left-color: var(--warning);
+        }
+        
+        .timeline-entry.blockagent {
+            border-left-color: var(--success);
+        }
+        
+        .timeline-entry.user {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.1));
+        }
+        
+        .timeline-entry.assistant {
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(37, 99, 235, 0.1));
+        }
+        
+        .timeline-entry.has-wait-on {
+            border-left-color: #f59e0b;
+            border-left-width: 6px;
+        }
+        
+        .timeline-entry.has-error {
+            border-left-color: #ef4444;
+            border-left-width: 6px;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.1));
+        }
+        
+        .entry-header {
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .entry-header:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+        
+        .entry-left {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex: 1;
+        }
+        
+        .badge {
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .badge-smartflow {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+        
+        .badge-blockagent {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+        
+        .badge-user {
+            background: rgba(16, 185, 129, 0.3);
+            color: var(--success);
+        }
+        
+        .badge-assistant {
+            background: rgba(37, 99, 235, 0.3);
+            color: #60a5fa;
+        }
+        
+        .badge-wait-on {
+            background: rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+            animation: pulse 2s infinite;
+        }
+        
+        .badge-error {
+            background: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .highlight-wait-on {
+            background: rgba(245, 158, 11, 0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border-left: 3px solid #f59e0b;
+            margin: 8px 0;
+        }
+        
+        .highlight-error {
+            background: rgba(239, 68, 68, 0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border-left: 3px solid #ef4444;
+            margin: 8px 0;
+        }
+        
+        .entry-summary {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            flex: 1;
+            margin: 0 10px;
+            word-wrap: break-word;
+            white-space: normal;
+            line-height: 1.4;
+        }
+        
+        .timestamp {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-family: monospace;
+        }
+        
+        .expand-icon {
+            margin-left: 10px;
+            transition: transform 0.2s;
+        }
+        
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .entry-details {
+            padding: 15px;
+            border-top: 1px solid var(--border);
+            display: none;
+        }
+        
+        .entry-details.expanded {
+            display: block;
+        }
+        
+        .content-text {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-bottom: 12px;
+            font-weight: 400;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .metadata-item {
+            font-size: 0.85rem;
+        }
+        
+        .metadata-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .metadata-value {
+            color: var(--text-primary);
+            font-family: monospace;
+            margin-top: 2px;
+        }
+        
+        .controls {
+            padding: 15px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .step-counter {
+            background: var(--bg-card);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .flow-canvas {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .flow-node {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 150px;
+            position: absolute;
+            cursor: move;
+        }
+        
+        .flow-node.smartflow {
+            border-color: var(--warning);
+        }
+        
+        .flow-node.blockagent {
+            border-color: var(--success);
+        }
+        
+        .node-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .node-type {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--border);
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .file-input {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .file-input:hover {
+            border-color: var(--primary);
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+        
+        .spinner {
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-main);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+        
+        canvas {
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Nelson's Block Agent Debug Tool</h1>
+                <div class="header-actions">
+                <button class="btn btn-primary" id="summaryBtn" disabled>📋 Summary</button>
+                <button class="btn btn-primary" id="uploadBtn">🔍 Load Session</button>
+                <button class="btn btn-secondary" id="clearBtn">🗑️ Clear Sessions</button>
+                <button class="btn btn-secondary" id="exportBtn">📥 Export</button>
+                <button class="btn btn-secondary" id="refreshBtn">🔄 Refresh</button>
+            </div>
+        </header>
+        
+        <div class="main-layout">
+            <div class="sidebar">
+                <h3 style="margin-bottom: 15px;">Sessions</h3>
+                <div id="sessionList" class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading sessions...</p>
+                </div>
+            </div>
+            
+            <div class="content-area">
+                <div class="tabs">
+                    <div class="tab active" data-tab="timeline">Timeline</div>
+                </div>
+                
+                <div id="timeline" class="tab-content active">
+                    <div class="controls">
+                        <button class="btn btn-secondary" id="prevBtn" disabled>← Previous</button>
+                        <button class="btn btn-secondary" id="nextBtn" disabled>Next →</button>
+                        <div class="step-counter" id="stepCounter">No session selected</div>
+                    <div style="margin-left: auto;">
+                        <button class="btn btn-secondary" id="filterPluginIdBtn" style="margin-right: 10px;">📋 Show All Entries</button>
+                        <button class="btn btn-primary" id="actionFilterBtn" style="margin-right: 10px;">🎯 SmartFlow Actions</button>
+                        <button class="btn btn-secondary" id="collapseAllBtn">Collapse All</button>
+                        <button class="btn btn-secondary" id="expandAllBtn">Expand All</button>
+                    </div>
+                </div>
+                <div id="sessionIdHeader" style="display: none; padding: 15px 20px; background: rgba(37, 99, 235, 0.1); border-left: 4px solid var(--primary); margin-bottom: 10px; border-radius: 8px;">
+                    <strong style="color: var(--primary); font-size: 0.9rem;">📋 Session ID:</strong>
+                    <span id="sessionIdDisplay" style="font-family: monospace; font-size: 1rem; margin-left: 10px;"></span>
+                </div>
+                <div class="timeline-view" id="timelineView">
+                    <div class="loading" style="padding: 100px 20px;">
+                        <h3>Select a session to view timeline</h3>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upload Modal -->
+    <div class="modal" id="uploadModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h2 class="modal-title">🔍 Load Session by ID</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5;">
+                Enter a session ID to automatically fetch and load both SmartFlows and BlockAgent debug logs.
+            </p>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label class="form-label">Session ID *</label>
+                    <input type="text" name="session_id" id="sessionIdInput" required
+                           placeholder="e.g., 1760571668-000000000001105328-SR-000-000000000000DEN140-2EBE8011"
+                           style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font-family: monospace; font-size: 1rem;">
+                    <small style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px; display: block;">
+                        💡 The app will automatically fetch:<br>
+                        • SmartFlows debug log from IntelePeer API<br>
+                        • BlockAgent log from AI Hub API
+                    </small>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelUploadBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="loadSessionBtn">🚀 Fetch & Load Session</button>
+                </div>
+            </form>
+            <div id="uploadStatus" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none;"></div>
+        </div>
+    </div>
+    
+    <!-- Summary Modal -->
+    <div class="modal" id="summaryModal">
+        <div class="modal-content" style="max-width: 900px; max-height: 80vh; overflow-y: auto;">
+            <h2 class="modal-title">📋 Session Summary</h2>
+            <div id="summaryContent" style="font-size: 0.95rem;">
+                <p style="color: var(--text-secondary);">Loading summary...</p>
+            </div>
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" id="closeSummaryBtn">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Action Filter Modal -->
+    <div class="modal" id="actionFilterModal">
+        <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+            <h2 class="modal-title">🎯 SmartFlow Actions</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5;">
+                Select which SmartFlow action types to display in the timeline. Only selected actions will be visible.
+            </p>
+            <div id="actionTypesList" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+                <p style="color: var(--text-secondary); width: 100%;">Loading actions...</p>
+            </div>
+            <div class="modal-actions" style="margin-top: 20px; display: flex; gap: 10px; justify-content: space-between;">
+                <button type="button" class="btn btn-secondary" id="selectAllActionsBtn">Select All</button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-secondary" id="closeActionFilterBtn">Close</button>
+                    <button type="button" class="btn btn-primary" id="applyActionFilterBtn">Apply Filter</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let sessions = [];
+        let currentSession = null;
+        let currentTimeline = [];
+        let currentStep = 0;
+        let expandedEntries = new Set();
+        let showPluginIdOnly = true;  // Filter toggle state - DEFAULT ON
+        let selectedActionTypes = new Set();  // SmartFlow action type filter
+        
+        // Tab switching (removed - only Timeline tab now)
+        
+        // Load sessions
+        async function loadSessions() {
+            try {
+                const response = await fetch('/api/sessions');
+                const data = await response.json();
+                sessions = data.sessions;
+                renderSessions();
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                document.getElementById('sessionList').innerHTML = '<p style="color: var(--danger);">Error loading sessions</p>';
+            }
+        }
+        
+        function renderSessions() {
+            const container = document.getElementById('sessionList');
+            if (sessions.length === 0) {
+                container.innerHTML = '<p>No sessions found</p>';
+                return;
+            }
+            
+            container.innerHTML = sessions.map(session => `
+                <div class="session-card" data-session-id="${session.session_id}" onclick="selectSession('${session.session_id}')">
+                    <div class="session-id">${session.session_id}</div>
+                    <div class="session-stats">
+                        <span>📊 ${session.total_entries}</span>
+                        <span>💬 ${session.conversation_turns}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function selectSession(sessionId) {
+            currentSession = sessionId;
+            currentStep = 0;
+            expandedEntries.clear();
+            
+            // Clear action filter when loading new session
+            selectedActionTypes.clear();
+            const actionBtn = document.getElementById('actionFilterBtn');
+            actionBtn.textContent = '🎯 SmartFlow Actions';
+            actionBtn.classList.remove('btn-success');
+            actionBtn.classList.add('btn-primary');
+            
+            document.querySelectorAll('.session-card').forEach(card => card.classList.remove('active'));
+            document.querySelector(`[data-session-id="${sessionId}"]`).classList.add('active');
+            
+            // Show session ID header
+            document.getElementById('sessionIdHeader').style.display = 'block';
+            document.getElementById('sessionIdDisplay').textContent = sessionId;
+            
+            document.getElementById('timelineView').innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading timeline...</p></div>';
+            
+            // Enable summary button
+            document.getElementById('summaryBtn').disabled = false;
+            
+            try {
+                const response = await fetch(`/api/session/${sessionId}`);
+                const data = await response.json();
+                currentTimeline = data.timeline;
+                renderTimeline();
+                updateControls();
+            } catch (error) {
+                console.error('Error loading session:', error);
+                document.getElementById('timelineView').innerHTML = '<p style="color: var(--danger);">Error loading timeline</p>';
+            }
+        }
+        
+        function generateSummary() {
+            if (!currentTimeline || currentTimeline.length === 0) {
+                return '<p>No data to summarize</p>';
+            }
+            
+            // Use filtered timeline for summary (only visible entries)
+            const timelineToSummarize = getFilteredTimeline();
+            
+            if (timelineToSummarize.length === 0) {
+                return '<p>No visible entries to summarize. Adjust filters to see more data.</p>';
+            }
+            
+            let ani = '';
+            let utterances = [];
+            let waitOnEvents = [];
+            let blockAgentInfo = {
+                agent_name: '',
+                version: '',
+                turns: []
+            };
+            let gptAgentInfo = {
+                turns: []
+            };
+            
+            // Check if BlockAgent exists in the session
+            const hasBlockAgent = timelineToSummarize.some(e => e.source === 'blockagent');
+            
+            // Extract data from filtered timeline (only visible entries)
+            for (const entry of timelineToSummarize) {
+                // Extract GPT Agent interactions
+                if (entry.metadata && entry.metadata.agent_type === 'gpt' && entry.role && entry.content) {
+                    let turnContent = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
+                    turnContent = cleanUserUtterance(turnContent);
+                    gptAgentInfo.turns.push({
+                        plugin_id: entry.metadata.PluginId || 'unknown',
+                        role: entry.role,
+                        content: turnContent.substring(0, 150) + (turnContent.length > 150 ? '...' : ''),
+                        timestamp: entry.timestamp
+                    });
+                }
+                
+                // Extract BlockAgent info from metadata
+                if (entry.source === 'blockagent') {
+                    // Get agent_name and version from metadata
+                    if (!blockAgentInfo.agent_name && entry.metadata && entry.metadata.agent_name) {
+                        blockAgentInfo.agent_name = entry.metadata.agent_name;
+                    }
+                    
+                    if (!blockAgentInfo.version && entry.metadata && entry.metadata.agent_version) {
+                        blockAgentInfo.version = entry.metadata.agent_version;
+                    }
+                    
+                    // Collect all turns
+                    if (entry.role && entry.content) {
+                        let turnContent = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
+                        turnContent = cleanUserUtterance(turnContent);
+                        blockAgentInfo.turns.push({
+                            turn_id: entry.turn_id || 'unknown',
+                            role: entry.role,
+                            content: turnContent.substring(0, 150) + (turnContent.length > 150 ? '...' : ''),
+                            timestamp: entry.timestamp
+                        });
+                    }
+                }
+                
+                // Extract ANI - check multiple formats and locations
+                if (!ani && entry.content) {
+                    const contentStr = JSON.stringify(entry.content);
+                    
+                    // Format 1: "ANI": "value" (JSON)
+                    let aniMatch = contentStr.match(/"ANI":\s*"([^"]+)"/i);
+                    if (aniMatch) {
+                        ani = aniMatch[1];
+                    } else {
+                        // Format 2: |Ani: value| (pipe-delimited)
+                        aniMatch = contentStr.match(/\|Ani:\s*([^|]+)\|/i);
+                        if (aniMatch) {
+                            ani = aniMatch[1].trim().replace(/\\"/g, '');
+                        }
+                    }
+                }
+                
+                // Also check metadata for ANI
+                if (!ani && entry.metadata) {
+                    const metaStr = JSON.stringify(entry.metadata);
+                    const aniMatch = metaStr.match(/"ANI":\s*"([^"]+)"/i);
+                    if (aniMatch) ani = aniMatch[1];
+                }
+                
+                // Extract user utterances
+                if (entry.role === 'user' && entry.content) {
+                    let utterance = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
+                    utterance = cleanUserUtterance(utterance);
+                    utterances.push({
+                        timestamp: entry.timestamp,
+                        text: utterance
+                    });
+                }
+                
+                // Extract WAIT_ON variables
+                if (entry.has_wait_on && entry.content) {
+                    const vars = extractVariables(entry.content);
+                    if (Object.keys(vars).length > 0) {
+                        waitOnEvents.push({
+                            wait_on: entry.wait_on_value || vars.wait_on || 'Unknown',
+                            timestamp: entry.timestamp,
+                            variables: vars
+                        });
+                    }
+                }
+            }
+            
+            // Build HTML summary
+            let html = '<div style="font-family: monospace; display: flex; gap: 20px;">';
+            
+            // Left column - main summary
+            html += '<div style="flex: 1;">';
+            
+            // Find preferred_phone from provided_number_lookup wait_on (for comparison at top)
+            let preferredPhoneForComparison = null;
+            for (const event of waitOnEvents) {
+                if (event.wait_on === 'provided_number_lookup' && event.variables.preferred_phone) {
+                    preferredPhoneForComparison = event.variables.preferred_phone;
+                    break;
+                }
+            }
+            
+            // ANI (with phone comparison if applicable)
+            if (ani) {
+                html += `<div style="margin-bottom: 20px; padding: 15px; background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--success); border-radius: 6px;">`;
+                html += `<strong style="font-size: 1.1rem; color: var(--success);">📞 ANI:</strong> <span style="font-size: 1.2rem;">${ani}</span>`;
+                
+                // Phone comparison right here if we have preferred_phone from provided_number_lookup
+                if (preferredPhoneForComparison) {
+                    const normalizePhone = (phone) => {
+                        // Remove all non-digit characters
+                        let normalized = phone.replace(/\D/g, '');
+                        // Remove leading 1 if present (US country code)
+                        if (normalized.length === 11 && normalized.startsWith('1')) {
+                            normalized = normalized.substring(1);
+                        }
+                        return normalized;
+                    };
+                    
+                    const normalizedANI = normalizePhone(ani);
+                    const normalizedPreferred = normalizePhone(preferredPhoneForComparison);
+                    const match = normalizedANI === normalizedPreferred;
+                    
+                    html += `<div style="margin-top: 12px; padding: 12px; background: ${match ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; border-left: 3px solid ${match ? '#10b981' : '#ef4444'}; border-radius: 4px;">`;
+                    html += `<strong style="color: ${match ? '#059669' : '#dc2626'}; font-size: 1.05rem;">📱 Phone Comparison:</strong><br>`;
+                    html += `<div style="margin-top: 8px; font-size: 0.95rem; line-height: 1.6;">`;
+                    html += `<div><strong>ANI (normalized):</strong> ${ani} → ${normalizedANI}</div>`;
+                    html += `<div><strong>Preferred:</strong> ${escapeHtml(preferredPhoneForComparison)} → ${normalizedPreferred}</div>`;
+                    html += `<div style="margin-top: 8px; font-size: 1.15rem; font-weight: bold;"><strong style="color: ${match ? '#059669' : '#dc2626'};">${match ? '✅ MATCH' : '❌ NO MATCH'}</strong></div>`;
+                    html += `</div></div>`;
+                }
+                
+                html += `</div>`;
+            }
+            
+            // User Utterances
+            if (utterances.length > 0) {
+                html += `<div style="margin-bottom: 20px;">`;
+                html += `<h3 style="color: var(--primary); margin-bottom: 10px;">💬 User Utterances</h3>`;
+                utterances.forEach((utt, idx) => {
+                    html += `<div style="margin-bottom: 10px; padding: 10px; background: rgba(37, 99, 235, 0.1); border-radius: 6px;">`;
+                    html += `<strong>${idx + 1}.</strong> <span style="color: var(--text-primary);">${escapeHtml(utt.text.substring(0, 200))}</span>`;
+                    html += `<br><small style="color: var(--text-secondary);">${utt.timestamp.split('T')[1]?.substring(0, 12) || ''}</small>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            }
+            
+            // WAIT_ON Events
+            if (waitOnEvents.length > 0) {
+                html += `<div style="margin-bottom: 20px;">`;
+                html += `<h3 style="color: var(--warning); margin-bottom: 10px;">⏸️ WAIT_ON Events</h3>`;
+                waitOnEvents.forEach((event, idx) => {
+                    html += `<div style="margin-bottom: 15px; padding: 15px; background: rgba(245, 158, 11, 0.1); border-left: 4px solid var(--warning); border-radius: 6px;">`;
+                    html += `<strong style="color: var(--warning); font-size: 1.1rem;">${idx + 1}. ${event.wait_on}</strong>`;
+                    html += `<br><small style="color: var(--text-secondary);">${event.timestamp.split('T')[1]?.substring(0, 12) || ''}</small>`;
+                    html += `<div style="margin-top: 10px; padding-left: 15px;">`;
+                    for (const [key, value] of Object.entries(event.variables)) {
+                        if (key !== 'wait_on') {
+                            html += `<div style="margin: 5px 0;"><strong style="color: var(--text-secondary);">${key}:</strong> <span style="color: var(--text-primary);">${escapeHtml(String(value))}</span></div>`;
+                        }
+                    }
+                    html += `</div></div>`;
+                });
+                html += `</div>`;
+            }
+            
+            html += '</div>'; // End left column
+            
+            // Right column - Agent summary (side table)
+            // If BlockAgent exists, show BlockAgent info
+            // If NO BlockAgent but GPT Agent exists, show GPT Agent info with GPT branding
+            if (hasBlockAgent && (blockAgentInfo.agent_name || blockAgentInfo.version || blockAgentInfo.turns.length > 0)) {
+                html += '<div style="min-width: 350px; max-width: 400px;">';
+                html += `<div style="padding: 15px; background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--success); border-radius: 6px; position: sticky; top: 20px;">`;
+                html += `<h3 style="color: var(--success); margin-bottom: 15px; font-size: 1.1rem;">🤖 BlockAgent Info</h3>`;
+                
+                if (blockAgentInfo.agent_name) {
+                    html += `<div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(16, 185, 129, 0.2);">`;
+                    html += `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px;">Agent Name:</div>`;
+                    html += `<div style="font-weight: 600; color: var(--text-primary); line-height: 1.4;">${escapeHtml(blockAgentInfo.agent_name)}</div>`;
+                    html += `</div>`;
+                }
+                
+                if (blockAgentInfo.version) {
+                    html += `<div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(16, 185, 129, 0.2);">`;
+                    html += `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px;">Version:</div>`;
+                    html += `<div style="font-weight: 600; color: var(--text-primary); font-size: 1.2rem;">${escapeHtml(blockAgentInfo.version)}</div>`;
+                    html += `</div>`;
+                }
+                
+                if (blockAgentInfo.turns.length > 0) {
+                    html += `<div style="margin-bottom: 0;">`;
+                    html += `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">Turn Tracker: ${blockAgentInfo.turns.length} turns</div>`;
+                    html += `<div style="max-height: 400px; overflow-y: auto; padding: 8px; background: rgba(0, 0, 0, 0.05); border-radius: 4px;">`;
+                    
+                    blockAgentInfo.turns.forEach((turn, idx) => {
+                        const roleColor = turn.role === 'user' ? '#2563eb' : '#10b981';
+                        const roleIcon = turn.role === 'user' ? '👤' : '🤖';
+                        const bgColor = turn.role === 'user' ? 'rgba(37, 99, 235, 0.9)' : 'rgba(16, 185, 129, 0.9)';
+                        html += `<div style="margin-bottom: 10px; padding: 10px; background: ${bgColor}; border-radius: 4px; border-left: 4px solid ${roleColor};">`;
+                        html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">`;
+                        html += `<strong style="color: white; font-size: 0.9rem;">${roleIcon} ${turn.role.toUpperCase()}</strong>`;
+                        html += `<span style="font-size: 0.75rem; color: white; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px; font-weight: bold;">Turn ${turn.turn_id}</span>`;
+                        html += `</div>`;
+                        html += `<div style="font-size: 0.85rem; color: white; line-height: 1.5; font-weight: bold;">${escapeHtml(turn.content)}</div>`;
+                        html += `<div style="font-size: 0.7rem; color: rgba(255,255,255,0.8); margin-top: 6px; font-weight: bold;">${turn.timestamp.split('T')[1]?.substring(0, 12) || ''}</div>`;
+                        html += `</div>`;
+                    });
+                    
+                    html += `</div></div>`;
+                }
+                
+                html += `</div></div>`;
+            } else if (!hasBlockAgent && gptAgentInfo.turns.length > 0) {
+                // No BlockAgent, but GPT Agent exists - show GPT Agent info with GPT branding
+                html += '<div style="min-width: 350px; max-width: 400px;">';
+                html += `<div style="padding: 15px; background: rgba(139, 92, 246, 0.1); border-left: 4px solid #8b5cf6; border-radius: 6px; position: sticky; top: 20px;">`;
+                html += `<h3 style="color: #8b5cf6; margin-bottom: 15px; font-size: 1.1rem;">🤖 GPT Agent Info</h3>`;
+                
+                html += `<div style="margin-bottom: 0;">`;
+                html += `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">Turn Tracker: ${gptAgentInfo.turns.length} turns</div>`;
+                html += `<div style="max-height: 400px; overflow-y: auto; padding: 8px; background: rgba(0, 0, 0, 0.05); border-radius: 4px;">`;
+                
+                gptAgentInfo.turns.forEach((turn, idx) => {
+                    const roleColor = turn.role === 'user' ? '#2563eb' : '#8b5cf6';
+                    const roleIcon = turn.role === 'user' ? '👤' : '🤖';
+                    const bgColor = turn.role === 'user' ? 'rgba(37, 99, 235, 0.9)' : 'rgba(139, 92, 246, 0.9)';
+                    html += `<div style="margin-bottom: 10px; padding: 10px; background: ${bgColor}; border-radius: 4px; border-left: 4px solid ${roleColor};">`;
+                    html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">`;
+                    html += `<strong style="color: white; font-size: 0.9rem;">${roleIcon} ${turn.role.toUpperCase()}</strong>`;
+                    html += `<span style="font-size: 0.75rem; color: white; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px; font-weight: bold;">${turn.plugin_id}</span>`;
+                    html += `</div>`;
+                    html += `<div style="font-size: 0.85rem; color: white; line-height: 1.5; font-weight: bold;">${escapeHtml(turn.content)}</div>`;
+                    html += `<div style="font-size: 0.7rem; color: rgba(255,255,255,0.8); margin-top: 6px; font-weight: bold;">${turn.timestamp.split('T')[1]?.substring(0, 12) || ''}</div>`;
+                    html += `</div>`;
+                });
+                
+                html += `</div></div>`;
+                html += `</div></div>`;
+            }
+            
+            // GPT Agent Info (additional right column if BOTH BlockAgent and GPT agent are present)
+            if (hasBlockAgent && gptAgentInfo.turns.length > 0) {
+                html += '<div style="min-width: 350px; max-width: 400px;">';
+                html += `<div style="padding: 15px; background: rgba(139, 92, 246, 0.1); border-left: 4px solid #8b5cf6; border-radius: 6px; position: sticky; top: 20px;">`;
+                html += `<h3 style="color: #8b5cf6; margin-bottom: 15px; font-size: 1.1rem;">🤖 GPT Agent Info</h3>`;
+                
+                if (gptAgentInfo.turns.length > 0) {
+                    html += `<div style="margin-bottom: 0;">`;
+                    html += `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">Turn Tracker: ${gptAgentInfo.turns.length} turns</div>`;
+                    html += `<div style="max-height: 400px; overflow-y: auto; padding: 8px; background: rgba(0, 0, 0, 0.05); border-radius: 4px;">`;
+                    
+                    gptAgentInfo.turns.forEach((turn, idx) => {
+                        const roleColor = turn.role === 'user' ? '#2563eb' : '#8b5cf6';
+                        const roleIcon = turn.role === 'user' ? '👤' : '🤖';
+                        const bgColor = turn.role === 'user' ? 'rgba(37, 99, 235, 0.9)' : 'rgba(139, 92, 246, 0.9)';
+                        html += `<div style="margin-bottom: 10px; padding: 10px; background: ${bgColor}; border-radius: 4px; border-left: 4px solid ${roleColor};">`;
+                        html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">`;
+                        html += `<strong style="color: white; font-size: 0.9rem;">${roleIcon} ${turn.role.toUpperCase()}</strong>`;
+                        html += `<span style="font-size: 0.75rem; color: white; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px; font-weight: bold;">${turn.plugin_id}</span>`;
+                        html += `</div>`;
+                        html += `<div style="font-size: 0.85rem; color: white; line-height: 1.5; font-weight: bold;">${escapeHtml(turn.content)}</div>`;
+                        html += `<div style="font-size: 0.7rem; color: rgba(255,255,255,0.8); margin-top: 6px; font-weight: bold;">${turn.timestamp.split('T')[1]?.substring(0, 12) || ''}</div>`;
+                        html += `</div>`;
+                    });
+                    
+                    html += `</div></div>`;
+                }
+                
+                html += `</div></div>`;
+            }
+            
+            html += '</div>'; // End container
+            return html;
+        }
+        
+        function extractVariables(content) {
+            const vars = {};
+            const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+            
+            // Extract common variables
+            const patterns = {
+                'wait_on': /"\$[^"]+\.wait_on":\s*"([^"]+)"/i,
+                'birth_day': /"\$[^"]+\.birth_day":\s*"?([^",}]+)"?/i,
+                'birth_month': /"\$[^"]+\.birth_month":\s*"?([^",}]+)"?/i,
+                'birth_year': /"\$[^"]+\.birth_year":\s*"?([^",}]+)"?/i,
+                'date_of_birth': /"\$[^"]+\.date_of_birth":\s*"([^"]+)"/i,
+                'ai_response': /"\$[^"]+\.ai_response":\s*"([^"]+)"/i,
+                'preferred_phone': /"\$[^"]+\.preferred_phone":\s*"?([^",}]+)"?/i,
+                'complete_date_of_birth_collected': /"\$[^"]+\.complete_date_of_birth_collected":\s*([^,}]+)/i,
+                'confirm_existing_appointment': /"\$[^"]+\.confirm_existing_appointment":\s*([^,}]+)/i
+            };
+            
+            for (const [key, pattern] of Object.entries(patterns)) {
+                const match = contentStr.match(pattern);
+                if (match && match[1]) {
+                    vars[key] = match[1].trim();
+                }
+            }
+            
+            return vars;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Get filtered timeline based on current filter settings
+        function getFilteredTimeline() {
+            let filteredTimeline = currentTimeline;
+            
+            // Check if BlockAgent exists in the timeline
+            const hasBlockAgent = currentTimeline.some(e => e.source === 'blockagent');
+            
+            // If BlockAgent is present, suppress GPT Agent (smartflow assistant) entries
+            if (hasBlockAgent) {
+                filteredTimeline = filteredTimeline.filter(entry => {
+                    // Filter out GPT Agent entries (metadata.agent_type === 'gpt')
+                    return !(entry.metadata && entry.metadata.agent_type === 'gpt');
+                });
+            }
+            
+            // Filter by PluginId if enabled
+            if (showPluginIdOnly) {
+                filteredTimeline = filteredTimeline.filter(entry => {
+                    // Show if it has PluginId OR if it's a BlockAgent entry (user/assistant)
+                    return (entry.metadata && entry.metadata.PluginId) || entry.role;
+                });
+            }
+            
+            // Apply action type filter if any are selected
+            if (selectedActionTypes.size > 0) {
+                filteredTimeline = filteredTimeline.filter(entry => {
+                    // Always show BlockAgent entries
+                    if (entry.role) return true;
+                    
+                    // For SmartFlow entries, check if the action type is selected
+                    if (entry.metadata && entry.metadata.PluginId) {
+                        const pluginId = entry.metadata.PluginId;
+                        // Extract action type (prefix before underscore and number)
+                        const actionType = pluginId.replace(/_\d+$/, '');
+                        return selectedActionTypes.has(actionType);
+                    }
+                    return false;
+                });
+            }
+            
+            return filteredTimeline;
+        }
+        
+        function renderTimeline() {
+            const container = document.getElementById('timelineView');
+            
+            if (currentTimeline.length === 0) {
+                container.innerHTML = '<div class="loading"><h3>No entries found</h3></div>';
+                return;
+            }
+            
+            // Get filtered timeline
+            const filteredTimeline = getFilteredTimeline();
+            
+            if (filteredTimeline.length === 0) {
+                container.innerHTML = '<div class="loading"><h3>No entries match the filter</h3></div>';
+                return;
+            }
+            
+            container.innerHTML = filteredTimeline.map((entry, idx) => {
+                // Check if entry has SessionData
+                const hasSessionData = entry.metadata && entry.metadata.has_session_data;
+                // Allow expansion normally
+                const isExpanded = expandedEntries.has(idx);
+                const sourceClass = entry.source;
+                const roleClass = entry.role || '';
+                const importantClass = entry.has_wait_on ? 'has-wait-on' : (entry.has_error ? 'has-error' : '');
+                
+                let summary = '';
+                if (entry.role) {
+                    let rawContent = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
+                    // Clean wrapped text for summary
+                    rawContent = cleanUserUtterance(rawContent);
+                    // Show full message in preview (no truncation)
+                    summary = rawContent;
+                } else {
+                    // For SmartFlows logs, show PluginId and logType if available
+                    if (entry.source === 'smartflow') {
+                        const pluginId = (entry.metadata && entry.metadata.PluginId) || '';
+                        // Check multiple locations for logType - PRIORITIZE metadata.logType
+                        const logType = (entry.metadata && entry.metadata.logType) || 
+                                       (entry.metadata && entry.metadata.LogType) ||
+                                       entry.log_type || 
+                                       '';
+                        
+                        if (pluginId && logType) {
+                            summary = `${pluginId} - ${logType}`;
+                        } else if (pluginId) {
+                            // If we have PluginId but no LogType, try to use entry.log_type
+                            const fallbackLogType = entry.log_type || 'system_log';
+                            summary = `${pluginId} - ${fallbackLogType}`;
+                        } else if (logType) {
+                            summary = logType;
+                        } else {
+                            summary = entry.message_type || entry.log_type || 'system_log';
+                        }
+                    } else {
+                        summary = entry.message_type || entry.log_type;
+                    }
+                }
+                
+                // Add important event indicators to summary
+                let indicators = '';
+                if (entry.has_wait_on) {
+                    indicators += `<span class="badge badge-wait-on">⏸️ WAIT_ON: ${entry.wait_on_value || 'detected'}</span>`;
+                }
+                if (entry.has_error) {
+                    indicators += `<span class="badge badge-error">❌ ERROR ${entry.error_code}</span>`;
+                }
+                // Add indicator for SessionData (these are auto-collapsed)
+                if (hasSessionData) {
+                    indicators += `<span class="badge" style="background: rgba(148, 163, 184, 0.2); color: var(--text-secondary);">📊 SessionData</span>`;
+                }
+                
+                // Check if this is a GPT agent entry
+                const isGPTAgent = entry.metadata && entry.metadata.agent_type === 'gpt';
+                const agentBadge = isGPTAgent ? 
+                    `<span class="badge" style="background: #8b5cf6; color: white;">🤖 GPT Agent</span>` : '';
+                
+                return `
+                    <div class="timeline-entry ${sourceClass} ${roleClass} ${importantClass}">
+                        <div class="entry-header" onclick="toggleEntry(${idx})">
+                            <div class="entry-left">
+                                <span class="badge badge-${sourceClass}">${sourceClass}</span>
+                                ${isGPTAgent ? agentBadge : ''}
+                                ${entry.role && !isGPTAgent ? `<span class="badge badge-${entry.role}">${entry.role}</span>` : ''}
+                                ${entry.role && isGPTAgent ? `<span class="badge badge-${entry.role}">${entry.role}</span>` : ''}
+                                ${indicators}
+                                <span class="entry-summary">${summary}</span>
+                            </div>
+                            <span class="timestamp">${entry.timestamp.split('T')[1]?.substring(0,12) || entry.timestamp.substring(11,23)}</span>
+                            <span class="expand-icon ${isExpanded ? 'expanded' : ''}">▶</span>
+                        </div>
+                        <div class="entry-details ${isExpanded ? 'expanded' : ''}">
+                            ${renderImportantFields(entry)}
+                            <div class="content-text" id="content-${idx}">${formatContent(entry.content, hasSessionData, idx)}</div>
+                            ${hasSessionData ? `
+                                <div style="margin-top: 10px; text-align: center;">
+                                    <button class="btn btn-secondary" style="font-size: 0.9rem; padding: 8px 16px;" onclick="event.stopPropagation(); showSessionData(${idx})">
+                                        📊 Show SessionData
+                                    </button>
+                                </div>
+                            ` : ''}
+                            ${renderMetadata(entry)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleEntry(idx) {
+            if (expandedEntries.has(idx)) {
+                expandedEntries.delete(idx);
+            } else {
+                expandedEntries.add(idx);
+            }
+            renderTimeline();
+        }
+        
+        function showSessionData(idx) {
+            // Get the original content
+            const entry = currentTimeline[idx];
+            if (!entry) return;
+            
+            // Parse the content and show full SessionData
+            let content = entry.content;
+            if (typeof content === 'string') {
+                let formatted = content;
+                
+                // AGGRESSIVE escape character removal
+                for (let i = 0; i < 5; i++) {
+                    formatted = formatted
+                        .replace(/\\\\\\"/g, '\\"')
+                        .replace(/\\"/g, '"')
+                        .replace(/\\\\\\\\/g, '\\\\')
+                        .replace(/\\\\/g, '\\')
+                        .replace(/\\n/g, '\n')
+                        .replace(/\\r/g, '')
+                        .replace(/\\t/g, '  ');
+                }
+                
+                if (formatted.trim().startsWith('{') || formatted.trim().startsWith('[')) {
+                    try {
+                        let parsed = JSON.parse(formatted);
+                        parsed = deepParseJSON(parsed);
+                        
+                        // Show SessionData expanded this time (no collapsing)
+                        const prettyJson = JSON.stringify(parsed, null, 2);
+                        
+                        // Update the content div
+                        const contentDiv = document.getElementById(`content-${idx}`);
+                        if (contentDiv) {
+                            contentDiv.innerHTML = formatContent(prettyJson, false, null);
+                        }
+                        
+                        // Hide the button (already showing SessionData)
+                        const button = event.target;
+                        if (button) {
+                            button.style.display = 'none';
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse SessionData:', e);
+                    }
+                }
+            }
+        }
+        
+        function renderImportantFields(entry) {
+            let html = '';
+            
+            if (entry.has_wait_on) {
+                html += `
+                    <div class="highlight-wait-on">
+                        <strong>⏸️ WAIT_ON Event Detected</strong><br>
+                        ${entry.wait_on_value ? `Value: <code>${entry.wait_on_value}</code>` : 'Agent paused, SmartFlow action triggered'}
+                    </div>
+                `;
+            }
+            
+            if (entry.has_error) {
+                html += `
+                    <div class="highlight-error" style="padding: 15px; border: 3px solid #ef4444; background: rgba(239, 68, 68, 0.15);">
+                        <strong style="color: #dc2626;">❌ HTTP ERROR ${entry.error_code}</strong><br>
+                        <div style="margin-top: 8px; font-weight: bold; color: #991b1b; font-size: 1.15em;">
+                            Status Code: <code style="background: #dc2626; color: white; padding: 4px 8px; border-radius: 4px; font-size: 1.1em; font-weight: bold;">${entry.error_code}</code> - Request Failed
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+        
+        function cleanUserUtterance(content) {
+            if (typeof content !== 'string') return content;
+            
+            // Remove the wrapper text
+            const wrapped = content.match(/-->?\*\*<\{([^}]+)\}>\*\*<--/);
+            if (wrapped && wrapped[1]) {
+                content = wrapped[1];
+            }
+            
+            // Also try without arrows
+            const wrapped2 = content.match(/\*\*<\{([^}]+)\}>\*\*/);
+            if (wrapped2 && wrapped2[1]) {
+                content = wrapped2[1];
+            }
+            
+            // Remove XML tags like <response>, <task_id>, <content>, etc.
+            // First try to extract content from <content> tags specifically
+            const contentMatch = content.match(/<content>([\s\S]*?)<\/content>/i);
+            if (contentMatch && contentMatch[1]) {
+                content = contentMatch[1].trim();
+            } else {
+                // Remove all XML-style tags
+                content = content.replace(/<\/?[^>]+(>|$)/g, '');
+            }
+            
+            // Clean up extra whitespace
+            content = content.replace(/\s+/g, ' ').trim();
+            
+            return content;
+        }
+        
+        // Recursively parse and clean nested JSON strings
+        function deepParseJSON(obj) {
+            if (typeof obj === 'string') {
+                // Try to parse if it looks like JSON
+                const trimmed = obj.trim();
+                if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+                    (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                    try {
+                        return deepParseJSON(JSON.parse(obj));
+                    } catch (e) {
+                        return obj;
+                    }
+                }
+                return obj;
+            } else if (Array.isArray(obj)) {
+                return obj.map(item => deepParseJSON(item));
+            } else if (obj !== null && typeof obj === 'object') {
+                const result = {};
+                for (const key in obj) {
+                    if (obj.hasOwnProperty(key)) {
+                        result[key] = deepParseJSON(obj[key]);
+                    }
+                }
+                return result;
+            }
+            return obj;
+        }
+        
+        // Collapse SessionData in a parsed object
+        function collapseSessionData(obj, generateId = false) {
+            if (!obj || typeof obj !== 'object') return { obj, hasSessionData: false, sessionDataId: null };
+            
+            let hasSessionData = false;
+            let sessionDataId = null;
+            
+            if (obj.SessionData) {
+                hasSessionData = true;
+                const sessionDataKeys = Object.keys(obj.SessionData || {}).length;
+                sessionDataId = 'sd_' + Math.random().toString(36).substr(2, 9);
+                
+                // Store the original SessionData for later expansion
+                if (generateId) {
+                    window.sessionDataStore = window.sessionDataStore || {};
+                    window.sessionDataStore[sessionDataId] = obj.SessionData;
+                }
+                
+                obj.SessionData = `[COLLAPSED - ${sessionDataKeys} variables - Click "Show SessionData" button to expand]`;
+            }
+            
+            // Recursively check nested objects
+            for (const key in obj) {
+                if (obj.hasOwnProperty(key) && key !== 'SessionData' && typeof obj[key] === 'object') {
+                    const result = collapseSessionData(obj[key], false);
+                    if (result.hasSessionData) hasSessionData = true;
+                }
+            }
+            
+            return { obj, hasSessionData, sessionDataId };
+        }
+        
+        function formatContent(content, hasSessionData = false, entryIdx = null) {
+            if (typeof content === 'string') {
+                let formatted = content;
+                let parsed = null;
+                let parseSuccess = false;
+                
+                // Try to parse JSON with progressive escape removal
+                if (formatted.trim().startsWith('{') || formatted.trim().startsWith('[')) {
+                    // Attempt multiple parse cycles with escape removal
+                    for (let attempt = 0; attempt < 6 && !parseSuccess; attempt++) {
+                        // Remove escapes before each parse attempt
+                        if (attempt > 0) {
+                            formatted = formatted
+                                .replace(/\\\\\\"/g, '\\"')  // \\\" -> \"
+                                .replace(/\\"/g, '"')         // \" -> "
+                                .replace(/\\\\\\\\/g, '\\\\') // \\\\ -> \\
+                                .replace(/\\\\/g, '\\')       // \\ -> \
+                                .replace(/\\n/g, '\n')        // \n -> newline
+                                .replace(/\\r/g, '')          // \r -> nothing
+                                .replace(/\\t/g, '  ');       // \t -> spaces
+                        }
+                        
+                        try {
+                            parsed = JSON.parse(formatted);
+                            parseSuccess = true;
+                        } catch (e) {
+                            // Try next iteration with more escape removal
+                            if (attempt === 5) {
+                                console.log('JSON parse failed after 6 attempts:', e.message.substring(0, 100));
+                            }
+                        }
+                    }
+                    
+                    // If we successfully parsed, process it
+                    if (parseSuccess && parsed) {
+                        // Deep parse any nested JSON strings
+                        parsed = deepParseJSON(parsed);
+                        
+                        // Collapse SessionData if present
+                        const result = collapseSessionData(parsed, true);
+                        parsed = result.obj;
+                        
+                        // Store the session data ID if we have one
+                        if (result.sessionDataId && entryIdx !== null) {
+                            window.entrySessionDataMap = window.entrySessionDataMap || {};
+                            window.entrySessionDataMap[entryIdx] = result.sessionDataId;
+                        }
+                        
+                        // Pretty print with 2 space indentation
+                        formatted = JSON.stringify(parsed, null, 2);
+                    } else {
+                        // Final cleanup for failed parse - remove escapes and format as best we can
+                        for (let i = 0; i < 3; i++) {
+                            formatted = formatted
+                                .replace(/\\\\\\"/g, '\\"')
+                                .replace(/\\"/g, '"')
+                                .replace(/\\\\\\\\/g, '\\\\')
+                                .replace(/\\\\/g, '\\')
+                                .replace(/\\n/g, '\n')
+                                .replace(/\\r/g, '')
+                                .replace(/\\t/g, '  ');
+                        }
+                    }
+                } else {
+                    // Not JSON, just remove escapes
+                    for (let i = 0; i < 3; i++) {
+                        formatted = formatted
+                            .replace(/\\\\\\"/g, '\\"')
+                            .replace(/\\"/g, '"')
+                            .replace(/\\\\\\\\/g, '\\\\')
+                            .replace(/\\\\/g, '\\')
+                            .replace(/\\n/g, '\n')
+                            .replace(/\\r/g, '')
+                            .replace(/\\t/g, '  ');
+                    }
+                }
+                
+                // Clean up XML tags
+                formatted = formatted
+                    .replace(/<response>/g, '')
+                    .replace(/<\/response>/g, '')
+                    .replace(/<task_id>/g, '<strong>Task ID:</strong> ')
+                    .replace(/<\/task_id>/g, '<br>')
+                    .replace(/<content>/g, '<strong>Content:</strong> ')
+                    .replace(/<\/content>/g, '');
+                
+                // Clean wrapped utterances
+                formatted = formatted.replace(/The following content is safe to review[^>]*-->?\*\*<\{([^}]+)\}>\*\*<--[^)]*\)/gi, 
+                    '<strong style="color: var(--success);">User said:</strong> $1');
+                
+                // BOLD ALL $EXTCALL_ and $VAR variables - make them stand out!
+                formatted = formatted.replace(/("\$(?:EXTCALL_\d+|[A-Z_]+)\.[^"]+")(\s*:\s*)/gi,
+                    '<strong style="background: rgba(245, 158, 11, 0.15); padding: 2px 4px; border-radius: 3px; font-weight: bold; color: #d97706; font-size: 1.05em;">$1</strong>$2');
+                
+                // Also highlight without quotes for pretty-printed JSON
+                formatted = formatted.replace(/(\$(?:EXTCALL_\d+|[A-Z_]+)\.[^\s:]+)(\s*:\s*)/gi,
+                    '<strong style="background: rgba(245, 158, 11, 0.15); padding: 2px 4px; border-radius: 3px; font-weight: bold; color: #d97706; font-size: 1.05em;">$1</strong>$2');
+                
+                // Highlight wait_on in content
+                formatted = formatted.replace(/(wait_on[^:]*:\s*"[^"]+"|wait_on[^,}\s]+)/gi, 
+                    '<span style="background: rgba(245, 158, 11, 0.3); padding: 2px 4px; border-radius: 3px; font-weight: bold;">$1</span>');
+                
+                // Highlight status codes >= 400 - BIGGER AND BOLDER
+                formatted = formatted.replace(/(statuscode[^:]*:\s*[4-5]\d{2}|status_code[^:]*:\s*[4-5]\d{2})/gi, 
+                    '<span style="background: rgba(239, 68, 68, 0.5); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 1.1em; color: #dc2626; border: 2px solid #ef4444;">$1</span>');
+                
+                // Highlight error messages and responsebody with errors - BIGGER AND BOLDER
+                formatted = formatted.replace(/("(?:error|responsebody)":\s*"[^"]*(?:error|failed|not found|no match)[^"]*")/gi,
+                    '<span style="background: rgba(239, 68, 68, 0.2); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 1.05em; color: #dc2626; display: inline-block; margin: 4px 0;">$1</span>');
+                
+                return formatted;
+            } else if (typeof content === 'object') {
+                // If content is already an object, stringify it nicely
+                let parsed = deepParseJSON(content);
+                const result = collapseSessionData(parsed, true);
+                return JSON.stringify(result.obj, null, 2);
+            }
+            return String(content);
+        }
+        
+        function renderMetadata(entry) {
+            const meta = [];
+            
+            if (entry.block_id) meta.push({ label: 'Block ID', value: entry.block_id });
+            if (entry.turn_id) meta.push({ label: 'Turn ID', value: entry.turn_id });
+            if (entry.transaction_id) meta.push({ label: 'Transaction ID', value: entry.transaction_id.substring(0, 8) + '...' });
+            
+            if (entry.metadata) {
+                if (entry.metadata.model_name) meta.push({ label: 'Model', value: entry.metadata.model_name });
+                if (entry.metadata.response_time) meta.push({ label: 'Response Time', value: `${entry.metadata.response_time.toFixed(3)}s` });
+                if (entry.metadata.total_tokens) meta.push({ label: 'Tokens', value: entry.metadata.total_tokens });
+                if (entry.metadata.host) meta.push({ label: 'Host', value: entry.metadata.host.split('.')[0] });
+            }
+            
+            if (meta.length === 0) return '';
+            
+            return `
+                <div class="metadata-grid">
+                    ${meta.map(m => `
+                        <div class="metadata-item">
+                            <div class="metadata-label">${m.label}</div>
+                            <div class="metadata-value">${m.value}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        function updateControls() {
+            const filteredTimeline = getFilteredTimeline();
+            const displayCount = filteredTimeline.length;
+            
+            document.getElementById('prevBtn').disabled = currentStep === 0;
+            document.getElementById('nextBtn').disabled = currentStep === displayCount - 1;
+            document.getElementById('stepCounter').textContent = `Step ${currentStep + 1} of ${displayCount}`;
+        }
+        
+        function nextStep() {
+            const filteredTimeline = getFilteredTimeline();
+            if (currentStep < filteredTimeline.length - 1) {
+                currentStep++;
+                document.getElementById('timelineView').scrollTop = 0;
+                renderTimeline();
+                updateControls();
+            }
+        }
+        
+        function prevStep() {
+            if (currentStep > 0) {
+                currentStep--;
+                document.getElementById('timelineView').scrollTop = 0;
+                renderTimeline();
+                updateControls();
+            }
+        }
+        
+        // Summary modal
+        document.getElementById('summaryBtn').addEventListener('click', () => {
+            const summaryHtml = generateSummary();
+            document.getElementById('summaryContent').innerHTML = summaryHtml;
+            document.getElementById('summaryModal').classList.add('active');
+        });
+        
+        document.getElementById('closeSummaryBtn').addEventListener('click', () => {
+            document.getElementById('summaryModal').classList.remove('active');
+        });
+        
+        // Upload modal
+        document.getElementById('uploadBtn').addEventListener('click', () => {
+            document.getElementById('uploadModal').classList.add('active');
+        });
+        
+        document.getElementById('cancelUploadBtn').addEventListener('click', () => {
+            document.getElementById('uploadModal').classList.remove('active');
+            document.getElementById('uploadForm').reset();
+        });
+        
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const sessionId = document.getElementById('sessionIdInput').value.trim();
+            const loadBtn = document.getElementById('loadSessionBtn');
+            const statusDiv = document.getElementById('uploadStatus');
+            
+            if (!sessionId) {
+                alert('Please provide a Session ID');
+                return;
+            }
+            
+            // Show loading status
+            loadBtn.disabled = true;
+            loadBtn.textContent = '⏳ Fetching...';
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'rgba(37, 99, 235, 0.2)';
+            statusDiv.style.border = '1px solid var(--primary)';
+            statusDiv.style.color = 'var(--text-primary)';
+            
+            statusDiv.innerHTML = `
+                🔄 Fetching SmartFlows debug log...<br>
+                🔄 Fetching BlockAgent log...<br>
+                📊 Processing data...
+            `;
+            
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.style.background = 'rgba(16, 185, 129, 0.2)';
+                    statusDiv.style.border = '1px solid var(--success)';
+                    
+                    statusDiv.innerHTML = `
+                        ✅ Success!<br>
+                        📋 Session: ${sessionId.substring(0, 50)}${sessionId.length > 50 ? '...' : ''}<br>
+                        ✓ SmartFlows log fetched<br>
+                        ✓ BlockAgent log fetched<br>
+                        ✓ Data processed and ready
+                    `;
+                    
+                    setTimeout(async () => {
+                        document.getElementById('uploadModal').classList.remove('active');
+                        await loadSessions();
+                        e.target.reset();
+                        statusDiv.style.display = 'none';
+                        loadBtn.disabled = false;
+                        loadBtn.textContent = '🚀 Fetch & Load Session';
+                    }, 2000);
+                } else {
+                    statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                    statusDiv.style.border = '1px solid var(--danger)';
+                    statusDiv.innerHTML = `❌ Error: ${result.error}`;
+                    loadBtn.disabled = false;
+                    loadBtn.textContent = '🚀 Fetch & Load Session';
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                statusDiv.style.border = '1px solid var(--danger)';
+                statusDiv.innerHTML = `❌ Failed: ${error.message}`;
+                loadBtn.disabled = false;
+                loadBtn.textContent = '🚀 Fetch & Load Session';
+            }
+        });
+        
+        // Export
+        document.getElementById('exportBtn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/export');
+                const data = await response.text();
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `workflow-debug-${new Date().toISOString()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Error exporting data');
+            }
+        });
+        
+        // Clear sessions
+        document.getElementById('clearBtn').addEventListener('click', async () => {
+            if (!confirm('Clear all uploaded sessions? (Default session will remain)')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/clear_sessions', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`✅ ${result.message}\nRemaining: ${result.remaining_sessions} session(s)`);
+                    await loadSessions();
+                    currentSession = null;
+                    currentTimeline = [];
+                    document.getElementById('summaryBtn').disabled = true;
+                    document.getElementById('timelineView').innerHTML = '<div class="loading" style="padding: 100px 20px;"><h3>Select a session to view timeline</h3></div>';
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Clear error:', error);
+                alert('Error clearing sessions');
+            }
+        });
+        
+        // Refresh
+        document.getElementById('refreshBtn').addEventListener('click', () => location.reload());
+        
+        // Controls
+        document.getElementById('prevBtn').addEventListener('click', prevStep);
+        document.getElementById('nextBtn').addEventListener('click', nextStep);
+        document.getElementById('collapseAllBtn').addEventListener('click', () => {
+            expandedEntries.clear();
+            renderTimeline();
+        });
+        document.getElementById('expandAllBtn').addEventListener('click', () => {
+            for (let i = 0; i < currentTimeline.length; i++) {
+                expandedEntries.add(i);
+            }
+            renderTimeline();
+        });
+        
+        // Filter toggle button
+        document.getElementById('filterPluginIdBtn').addEventListener('click', () => {
+            showPluginIdOnly = !showPluginIdOnly;
+            const btn = document.getElementById('filterPluginIdBtn');
+            if (showPluginIdOnly) {
+                btn.textContent = '📋 Show All Entries';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            } else {
+                btn.textContent = '📌 Show PluginId Only';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary');
+            }
+            renderTimeline();
+        });
+        
+        // Action Filter Modal
+        function getActionTypes() {
+            const actionTypes = new Map(); // Map of action type to count
+            
+            currentTimeline.forEach(entry => {
+                if (entry.metadata && entry.metadata.PluginId) {
+                    const pluginId = entry.metadata.PluginId;
+                    // Extract action type (prefix before underscore and number)
+                    const actionType = pluginId.replace(/_\d+$/, '');
+                    actionTypes.set(actionType, (actionTypes.get(actionType) || 0) + 1);
+                }
+            });
+            
+            return Array.from(actionTypes.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+        }
+        
+        function populateActionFilterModal() {
+            const actionTypes = getActionTypes();
+            const container = document.getElementById('actionTypesList');
+            
+            if (actionTypes.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); width: 100%;">No SmartFlow actions found in this session.</p>';
+                return;
+            }
+            
+            container.innerHTML = actionTypes.map(([actionType, count]) => {
+                const isSelected = selectedActionTypes.has(actionType);
+                return `
+                    <button class="btn ${isSelected ? 'btn-primary' : 'btn-secondary'}" 
+                            data-action-type="${actionType}" 
+                            style="padding: 10px 16px; font-size: 0.9rem;">
+                        ${actionType} <span style="opacity: 0.7;">(${count})</span>
+                    </button>
+                `;
+            }).join('');
+            
+            // Add click handlers to toggle buttons
+            container.querySelectorAll('button[data-action-type]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const actionType = btn.dataset.actionType;
+                    if (selectedActionTypes.has(actionType)) {
+                        selectedActionTypes.delete(actionType);
+                        btn.classList.remove('btn-primary');
+                        btn.classList.add('btn-secondary');
+                    } else {
+                        selectedActionTypes.add(actionType);
+                        btn.classList.remove('btn-secondary');
+                        btn.classList.add('btn-primary');
+                    }
+                });
+            });
+        }
+        
+        // Open action filter modal
+        document.getElementById('actionFilterBtn').addEventListener('click', () => {
+            populateActionFilterModal();
+            document.getElementById('actionFilterModal').style.display = 'flex';
+        });
+        
+        // Close action filter modal
+        document.getElementById('closeActionFilterBtn').addEventListener('click', () => {
+            document.getElementById('actionFilterModal').style.display = 'none';
+        });
+        
+        // Select all actions
+        document.getElementById('selectAllActionsBtn').addEventListener('click', () => {
+            const actionTypes = getActionTypes();
+            actionTypes.forEach(([actionType]) => selectedActionTypes.add(actionType));
+            populateActionFilterModal();
+        });
+        
+        // Apply action filter
+        document.getElementById('applyActionFilterBtn').addEventListener('click', () => {
+            document.getElementById('actionFilterModal').style.display = 'none';
+            
+            // Update button appearance based on filter state
+            const btn = document.getElementById('actionFilterBtn');
+            if (selectedActionTypes.size > 0) {
+                btn.textContent = `🎯 SmartFlow Actions (${selectedActionTypes.size})`;
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-success');
+            } else {
+                btn.textContent = '🎯 SmartFlow Actions';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-primary');
+            }
+            
+            renderTimeline();
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextStep();
+            if (e.key === 'ArrowLeft') prevStep();
+        });
+        
+        // Initialize
+        loadSessions();
+    </script>
+</body>
+</html>
