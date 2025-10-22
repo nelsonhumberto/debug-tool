@@ -58,6 +58,8 @@
         .header-actions {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
         
         .btn {
@@ -111,6 +113,12 @@
             border-right: 1px solid var(--border);
             overflow-y: auto;
             padding: 15px;
+        }
+        
+        .sidebar-title {
+            margin-bottom: 15px;
+            font-size: 1rem;
+            font-weight: 600;
         }
         
         .content-area {
@@ -388,6 +396,41 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .controls-primary,
+        .controls-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .controls-actions {
+            margin-left: auto;
+        }
+        
+        .mobile-only {
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        body.no-scroll {
+            overflow: hidden;
+        }
+        
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.65);
+            z-index: 800;
+            display: none;
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
         }
         
         .step-counter {
@@ -536,6 +579,152 @@
             background: var(--primary);
         }
         
+        @media (max-width: 1200px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            
+            .header-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
+        
+        @media (max-width: 900px) {
+            body {
+                overflow: auto;
+            }
+            
+            body.no-scroll {
+                position: fixed;
+                width: 100%;
+            }
+            
+            .container {
+                height: auto;
+                min-height: 100vh;
+            }
+            
+            .main-layout {
+                flex-direction: column;
+                overflow: visible;
+            }
+            
+            .sidebar {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                max-height: 75vh;
+                border-right: none;
+                border-left: none;
+                border-top: 1px solid var(--border);
+                border-top-left-radius: 16px;
+                border-top-right-radius: 16px;
+                box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.6);
+                transform: translateY(100%);
+                transition: transform 0.3s ease;
+                pointer-events: none;
+                padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 20px));
+                z-index: 900;
+                overflow-y: auto;
+                background: var(--bg-secondary);
+            }
+            
+            .sidebar.open {
+                transform: translateY(0);
+                pointer-events: auto;
+            }
+            
+            .sidebar-title {
+                text-align: center;
+            }
+            
+            .content-area {
+                flex: none;
+                min-height: calc(100vh - 200px);
+            }
+            
+            .controls {
+                align-items: stretch;
+            }
+            
+            .controls-primary,
+            .controls-actions {
+                justify-content: center;
+            }
+            
+            .controls-actions {
+                margin-left: 0;
+            }
+            
+            .controls-actions .btn,
+            .controls-primary .btn {
+                flex: 1 1 calc(50% - 10px);
+            }
+            
+            .step-counter {
+                width: 100%;
+                text-align: center;
+                flex: 1 1 100%;
+            }
+            
+            .tabs {
+                overflow-x: auto;
+            }
+            
+            .timeline-view {
+                padding: 12px;
+            }
+            
+            .entry-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .entry-left {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .content-text {
+                font-size: 0.85rem;
+            }
+            
+            .mobile-only {
+                display: inline-flex;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.2rem;
+            }
+            
+            .header-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .controls-primary,
+            .controls-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .controls-actions .btn,
+            .controls-primary .btn {
+                flex: 1 1 100%;
+            }
+        }
+        
         canvas {
             border: 1px solid var(--border);
             background: var(--bg-secondary);
@@ -547,7 +736,8 @@
     <div class="container">
         <header>
             <h1>🔍 Nelson's Block Agent Debug Tool</h1>
-                <div class="header-actions">
+            <div class="header-actions">
+                <button class="btn btn-secondary mobile-only" id="toggleSidebarBtn" aria-controls="sessionList" aria-expanded="false">📁 Sessions</button>
                 <button class="btn btn-primary" id="summaryBtn" disabled>📋 Summary</button>
                 <button class="btn btn-primary" id="uploadBtn">🔍 Load Session</button>
                 <button class="btn btn-secondary" id="clearBtn">🗑️ Clear Sessions</button>
@@ -556,9 +746,11 @@
             </div>
         </header>
         
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        
         <div class="main-layout">
             <div class="sidebar">
-                <h3 style="margin-bottom: 15px;">Sessions</h3>
+                <h3 class="sidebar-title">Sessions</h3>
                 <div id="sessionList" class="loading">
                     <div class="spinner"></div>
                     <p>Loading sessions...</p>
@@ -572,25 +764,27 @@
                 
                 <div id="timeline" class="tab-content active">
                     <div class="controls">
-                        <button class="btn btn-secondary" id="prevBtn" disabled>← Previous</button>
-                        <button class="btn btn-secondary" id="nextBtn" disabled>Next →</button>
-                        <div class="step-counter" id="stepCounter">No session selected</div>
-                    <div style="margin-left: auto;">
-                        <button class="btn btn-secondary" id="filterPluginIdBtn" style="margin-right: 10px;">📋 Show All Entries</button>
-                        <button class="btn btn-primary" id="actionFilterBtn" style="margin-right: 10px;">🎯 SmartFlow Actions</button>
-                        <button class="btn btn-secondary" id="collapseAllBtn">Collapse All</button>
-                        <button class="btn btn-secondary" id="expandAllBtn">Expand All</button>
+                        <div class="controls-primary">
+                            <button class="btn btn-secondary" id="prevBtn" disabled>← Previous</button>
+                            <button class="btn btn-secondary" id="nextBtn" disabled>Next →</button>
+                            <div class="step-counter" id="stepCounter">No session selected</div>
+                        </div>
+                        <div class="controls-actions">
+                            <button class="btn btn-secondary" id="filterPluginIdBtn">📋 Show All Entries</button>
+                            <button class="btn btn-primary" id="actionFilterBtn">🎯 SmartFlow Actions</button>
+                            <button class="btn btn-secondary" id="collapseAllBtn">Collapse All</button>
+                            <button class="btn btn-secondary" id="expandAllBtn">Expand All</button>
+                        </div>
                     </div>
-                </div>
-                <div id="sessionIdHeader" style="display: none; padding: 15px 20px; background: rgba(37, 99, 235, 0.1); border-left: 4px solid var(--primary); margin-bottom: 10px; border-radius: 8px;">
-                    <strong style="color: var(--primary); font-size: 0.9rem;">📋 Session ID:</strong>
-                    <span id="sessionIdDisplay" style="font-family: monospace; font-size: 1rem; margin-left: 10px;"></span>
-                </div>
-                <div class="timeline-view" id="timelineView">
-                    <div class="loading" style="padding: 100px 20px;">
-                        <h3>Select a session to view timeline</h3>
+                    <div id="sessionIdHeader" style="display: none; padding: 15px 20px; background: rgba(37, 99, 235, 0.1); border-left: 4px solid var(--primary); margin-bottom: 10px; border-radius: 8px;">
+                        <strong style="color: var(--primary); font-size: 0.9rem;">📋 Session ID:</strong>
+                        <span id="sessionIdDisplay" style="font-family: monospace; font-size: 1rem; margin-left: 10px;"></span>
                     </div>
-                </div>
+                    <div class="timeline-view" id="timelineView">
+                        <div class="loading" style="padding: 100px 20px;">
+                            <h3>Select a session to view timeline</h3>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -666,6 +860,51 @@
         let showPluginIdOnly = true;  // Filter toggle state - DEFAULT ON
         let selectedActionTypes = new Set();  // SmartFlow action type filter
         
+        const sidebarElement = document.querySelector('.sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+
+        function setSidebarState(isOpen) {
+            if (!sidebarElement) {
+                return;
+            }
+
+            sidebarElement.classList.toggle('open', isOpen);
+            document.body.classList.toggle('no-scroll', isOpen);
+
+            if (sidebarOverlay) {
+                sidebarOverlay.classList.toggle('active', isOpen);
+            }
+
+            if (toggleSidebarBtn) {
+                toggleSidebarBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                toggleSidebarBtn.textContent = isOpen ? '✖ Close Sessions' : '📁 Sessions';
+            }
+        }
+
+        function closeSidebarIfMobile() {
+            if (window.matchMedia('(max-width: 900px)').matches) {
+                setSidebarState(false);
+            }
+        }
+
+        if (toggleSidebarBtn) {
+            toggleSidebarBtn.addEventListener('click', () => {
+                const isOpen = sidebarElement && sidebarElement.classList.contains('open');
+                setSidebarState(!isOpen);
+            });
+        }
+
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', () => setSidebarState(false));
+        }
+
+        window.addEventListener('resize', () => {
+            if (!window.matchMedia('(max-width: 900px)').matches) {
+                setSidebarState(false);
+            }
+        });
+        
         // Tab switching (removed - only Timeline tab now)
         
         // Load sessions
@@ -713,6 +952,7 @@
             
             document.querySelectorAll('.session-card').forEach(card => card.classList.remove('active'));
             document.querySelector(`[data-session-id="${sessionId}"]`).classList.add('active');
+            closeSidebarIfMobile();
             
             // Show session ID header
             document.getElementById('sessionIdHeader').style.display = 'block';
@@ -1841,6 +2081,7 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowRight') nextStep();
             if (e.key === 'ArrowLeft') prevStep();
+            if (e.key === 'Escape') setSidebarState(false);
         });
         
         // Initialize
