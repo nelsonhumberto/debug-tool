@@ -344,7 +344,9 @@ def upload_session():
         # Fetch SmartFlows debug log from API
         print(f"Fetching SmartFlows debug log...")
         smartflow_api_url = f"https://api.intelepeer.com/_rest/v4/sfgen/_internal/debug/session/{session_id}"
-        smartflow_api_key = os.environ.get('SMARTFLOW_API_KEY', '88aa3ad186ab15c74f8a5c91c67ced94')
+        smartflow_api_key = os.environ.get('SMARTFLOW_API_KEY')
+        if not smartflow_api_key:
+            return jsonify({'error': 'SMARTFLOW_API_KEY environment variable is not set'}), 500
         smartflow_headers = {
             "Accept": "application/json, text/plain, */*",
             "Origin": "https://customer.intelepeer.com",
@@ -363,7 +365,9 @@ def upload_session():
         # Fetch BlockAgent log from API
         print(f"Fetching BlockAgent log...")
         blockagent_api_url = f"https://aiservice.intelepeer.com/aihub/v2/_internal/session/{session_id}"
-        blockagent_api_key = os.environ.get('BLOCKAGENT_API_KEY', '3d9e9be5272b49540f9b1a5370695ee3')
+        blockagent_api_key = os.environ.get('BLOCKAGENT_API_KEY')
+        if not blockagent_api_key:
+            return jsonify({'error': 'BLOCKAGENT_API_KEY environment variable is not set'}), 500
         blockagent_headers = {
             'Authorization': blockagent_api_key
         }
