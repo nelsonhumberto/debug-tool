@@ -49,7 +49,8 @@ except Exception as e:
     default_debugger = None
 
 print("✅ Server ready! Use the 'Load Session' button to fetch session data.")
-print("🌐 Open http://localhost:5001 in your browser")
+port = int(os.environ.get('PORT', 5000))
+print(f"🌐 Server starting on port {port}")
 
 
 @app.route('/')
@@ -343,11 +344,12 @@ def upload_session():
         # Fetch SmartFlows debug log from API
         print(f"Fetching SmartFlows debug log...")
         smartflow_api_url = f"https://api.intelepeer.com/_rest/v4/sfgen/_internal/debug/session/{session_id}"
+        smartflow_api_key = os.environ.get('SMARTFLOW_API_KEY', '88aa3ad186ab15c74f8a5c91c67ced94')
         smartflow_headers = {
             "Accept": "application/json, text/plain, */*",
             "Origin": "https://customer.intelepeer.com",
             "Referer": "https://customer.intelepeer.com/",
-            "Authorization": "88aa3ad186ab15c74f8a5c91c67ced94"
+            "Authorization": smartflow_api_key
         }
         
         try:
@@ -361,8 +363,9 @@ def upload_session():
         # Fetch BlockAgent log from API
         print(f"Fetching BlockAgent log...")
         blockagent_api_url = f"https://aiservice.intelepeer.com/aihub/v2/_internal/session/{session_id}"
+        blockagent_api_key = os.environ.get('BLOCKAGENT_API_KEY', '3d9e9be5272b49540f9b1a5370695ee3')
         blockagent_headers = {
-            'Authorization': '3d9e9be5272b49540f9b1a5370695ee3'
+            'Authorization': blockagent_api_key
         }
         
         try:
@@ -501,8 +504,6 @@ def export_data():
 
 
 if __name__ == '__main__':
-    # Support for Replit and other cloud platforms
-    import os
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('PORT', 5000))
     app.run(debug=True, host='0.0.0.0', port=port)
 
