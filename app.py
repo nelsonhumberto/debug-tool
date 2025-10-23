@@ -12,6 +12,10 @@ import json
 import tempfile
 import uuid
 import requests
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'workflow-debugger-secret-key-2025'
@@ -362,23 +366,49 @@ def upload_session():
         except requests.RequestException as e:
             return jsonify({'error': f'Failed to fetch SmartFlows debug log: {str(e)}'}), 500
         
-        # Fetch BlockAgent log from API
+        # Fetch BlockAgent log from API (optional - session might not have BlockAgent)
         print(f"Fetching BlockAgent log...")
-        blockagent_api_url = f"https://aiservice.intelepeer.com/aihub/v2/_internal/session/{session_id}"
+        blockagent_log_json = None
         blockagent_api_key = os.environ.get('BLOCKAGENT_API_KEY')
-        if not blockagent_api_key:
-            return jsonify({'error': 'BLOCKAGENT_API_KEY environment variable is not set'}), 500
-        blockagent_headers = {
-            'Authorization': blockagent_api_key
-        }
         
-        try:
-            blockagent_response = requests.get(blockagent_api_url, headers=blockagent_headers, timeout=30)
-            blockagent_response.raise_for_status()
-            blockagent_log_json = blockagent_response.json()
-            print(f"Successfully fetched BlockAgent log")
-        except requests.RequestException as e:
-            return jsonify({'error': f'Failed to fetch BlockAgent log: {str(e)}'}), 500
+        if blockagent_api_key:
+            blockagent_api_url = f"https://aiservice.intelepeer.com/aihub/v2/_internal/session/{session_id}"
+            blockagent_headers = {
+                'Authorization': blockagent_api_key
+            }
+            
+            try:
+                blockagent_response = requests.get(blockagent_api_url, headers=blockagent_headers, timeout=30)
+                
+                # Check if response is successful
+                if blockagent_response.status_code == 200:
+                    blockagent_log_json = blockagent_response.json()
+                    
+                    # Validate that it's actual log data, not an error response
+                    if isinstance(blockagent_log_json, dict) and 'error_messages' in blockagent_log_json:
+                        print(f"⚠️  BlockAgent log not available: {blockagent_log_json.get('error_messages', 'Session not found')}")
+                        print(f"📝 Continuing with SmartFlows data only")
+                        blockagent_log_json = None
+                    elif isinstance(blockagent_log_json, dict) and ('transactions' in blockagent_log_json or 'session_id' in blockagent_log_json):
+                        # Valid BlockAgent log format with transactions or session_id
+                        print(f"✅ Successfully fetched BlockAgent log")
+                    else:
+                        # Unknown format, treat as no data
+                        print(f"⚠️  BlockAgent log format not recognized: {list(blockagent_log_json.keys()) if isinstance(blockagent_log_json, dict) else type(blockagent_log_json).__name__}")
+                        print(f"📝 Continuing with SmartFlows data only")
+                        blockagent_log_json = None
+                else:
+                    print(f"⚠️  BlockAgent log not available: HTTP {blockagent_response.status_code}")
+                    print(f"📝 Continuing with SmartFlows data only")
+                    blockagent_log_json = None
+                    
+            except requests.RequestException as e:
+                print(f"⚠️  BlockAgent log not available: {str(e)}")
+                print(f"📝 Continuing with SmartFlows data only")
+                blockagent_log_json = None
+        else:
+            print(f"⚠️  BLOCKAGENT_API_KEY not set - skipping BlockAgent data")
+            print(f"📝 Continuing with SmartFlows data only")
         
         # Create unique folder for this session
         upload_id = str(uuid.uuid4())
@@ -392,8 +422,18 @@ def upload_session():
         with open(smartflow_log_path, 'w') as f:
             json.dump(smartflow_log_json, f)
         
-        with open(blockagent_log_path, 'w') as f:
-            json.dump(blockagent_log_json, f)
+        # Save BlockAgent log only if we have data
+        if blockagent_log_json:
+            with open(blockagent_log_path, 'w') as f:
+                json.dump(blockagent_log_json, f)
+        else:
+            # Create empty BlockAgent log file with proper structure
+            with open(blockagent_log_path, 'w') as f:
+                json.dump({
+                    'session_id': session_id,
+                    'transactions': [],
+                    'agents': {}
+                }, f)
         
         # Use default infrastructure files (can be enhanced later)
         smartflow_xml_path = os.path.join(BASE_PATH, 'smatflow.xml')
@@ -416,11 +456,19 @@ def upload_session():
         for sess_id in new_sessions:
             debuggers[sess_id] = new_debugger
         
+        # Build success message
+        message = f'Successfully loaded session: {session_id}'
+        if blockagent_log_json:
+            message += ' (SmartFlows + BlockAgent)'
+        else:
+            message += ' (SmartFlows only - no BlockAgent data)'
+        
         return jsonify({
             'success': True,
             'sessions': new_sessions,
-            'message': f'Successfully loaded session: {session_id}',
-            'fetched_from_api': True
+            'message': message,
+            'fetched_from_api': True,
+            'has_blockagent': blockagent_log_json is not None
         })
         
     except Exception as e:

@@ -42,3 +42,6 @@ Thumbs.db
 # Project specific
 temp_*.json
 session_*.json
+
+# Environment variables (contains API keys)
+.env
