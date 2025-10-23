@@ -1035,17 +1035,23 @@
                     if (entry.role && entry.content) {
                         let turnContent = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
                         
-                        // For assistant role, try to extract only the response field
+                        // For assistant role, prioritize formatted_ai_response from metadata
                         if (entry.role === 'assistant') {
-                            try {
-                                const contentObj = typeof entry.content === 'string' ? JSON.parse(entry.content) : entry.content;
-                                if (contentObj && contentObj.response) {
-                                    turnContent = contentObj.response;
-                                } else {
+                            // First check if metadata.formatted_ai_response exists
+                            if (entry.metadata && entry.metadata.formatted_ai_response) {
+                                turnContent = entry.metadata.formatted_ai_response;
+                            } else {
+                                // Fall back to parsing content for response field
+                                try {
+                                    const contentObj = typeof entry.content === 'string' ? JSON.parse(entry.content) : entry.content;
+                                    if (contentObj && contentObj.response) {
+                                        turnContent = contentObj.response;
+                                    } else {
+                                        turnContent = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
+                                    }
+                                } catch (e) {
                                     turnContent = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
                                 }
-                            } catch (e) {
-                                turnContent = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
                             }
                         }
                         
@@ -1446,28 +1452,34 @@
                 
                 let summary = '';
                 if (entry.role) {
-                    // Special handling for BlockAgent assistant messages with next_transition_task_id
+                    // Special handling for BlockAgent assistant messages
                     if (entry.role === 'assistant') {
-                        let contentObj = entry.content;
-                        
-                        // Parse if it's a string
-                        if (typeof contentObj === 'string') {
-                            try {
-                                contentObj = JSON.parse(contentObj);
-                            } catch (e) {
-                                // Not JSON, use as-is
-                                contentObj = null;
-                            }
-                        }
-                        
-                        // If it has response field, show only the response in collapsed view
-                        if (contentObj && contentObj.response) {
-                            summary = contentObj.response;
+                        // First priority: check if metadata.formatted_ai_response exists
+                        if (entry.metadata && entry.metadata.formatted_ai_response) {
+                            summary = entry.metadata.formatted_ai_response;
                         } else {
-                            // Otherwise show full content
-                            let rawContent = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
-                            rawContent = cleanUserUtterance(rawContent);
-                            summary = rawContent;
+                            // Second priority: try to parse content for response field
+                            let contentObj = entry.content;
+                            
+                            // Parse if it's a string
+                            if (typeof contentObj === 'string') {
+                                try {
+                                    contentObj = JSON.parse(contentObj);
+                                } catch (e) {
+                                    // Not JSON, use as-is
+                                    contentObj = null;
+                                }
+                            }
+                            
+                            // If it has response field, show only the response in collapsed view
+                            if (contentObj && contentObj.response) {
+                                summary = contentObj.response;
+                            } else {
+                                // Otherwise show full content
+                                let rawContent = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
+                                rawContent = cleanUserUtterance(rawContent);
+                                summary = rawContent;
+                            }
                         }
                     } else {
                         // For user messages, clean and show full content
