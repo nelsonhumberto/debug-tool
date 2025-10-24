@@ -1471,13 +1471,31 @@
                                         body = JSON.parse(body);
                                     } catch (e) {}
                                 }
-                                // Check if this is a tool_call
-                                if (body.tool_calls || body.tool_call) {
+                                // Check if this is a tool_call (various formats)
+                                if (body.tool_calls || body.tool_call || body.result || body.function) {
                                     entry.is_tool_call = true;
-                                    summary = '🔧 Tool Call: ' + (body.tool_name || 'System Function');
+                                    // Try to extract function name
+                                    let funcName = 'System Function';
+                                    if (body.tool_name) {
+                                        funcName = body.tool_name;
+                                    } else if (body.function) {
+                                        funcName = body.function;
+                                    } else if (body.result && Array.isArray(body.result) && body.result[0] && body.result[0].function) {
+                                        funcName = body.result[0].function;
+                                    }
+                                    summary = '🔧 Tool Call: ' + funcName;
                                 } else if (body.user_message) {
-                                    // Extract user_message
-                                    summary = body.user_message;
+                                    // Extract user_message - try to parse if stringified
+                                    let userMsg = body.user_message;
+                                    if (typeof userMsg === 'string') {
+                                        try {
+                                            const parsed = JSON.parse(userMsg);
+                                            if (typeof parsed === 'object') {
+                                                userMsg = JSON.stringify(parsed, null, 2);
+                                            }
+                                        } catch (e) {}
+                                    }
+                                    summary = userMsg;
                                 } else if (typeof body === 'string') {
                                     summary = body;
                                 } else {
