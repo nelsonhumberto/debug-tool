@@ -773,6 +773,10 @@
                             <button class="btn btn-secondary" id="filterPluginIdBtn">📋 Show All Entries</button>
                             <button class="btn btn-primary" id="actionFilterBtn">🎯 SmartFlow Actions</button>
                             <button class="btn btn-secondary" id="simplifiedBtn">✨ SIMPLIFIED</button>
+                            <label style="display: inline-flex; align-items: center; padding: 8px 16px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 6px; cursor: pointer; user-select: none; margin: 0 5px;">
+                                <input type="checkbox" id="detectGptAgentCheckbox" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
+                                <span style="color: var(--primary); font-weight: 500;">🤖 DETECT GPT AGENT</span>
+                            </label>
                             <button class="btn btn-secondary" id="collapseAllBtn">Collapse All</button>
                             <button class="btn btn-secondary" id="expandAllBtn">Expand All</button>
                         </div>
@@ -862,6 +866,7 @@
         let selectedActionTypes = new Set();  // SmartFlow action type filter
         let simplifiedMode = false;  // Simplified mode toggle
         let showOriginalMap = {};  // Track which entries are showing original content
+        let detectGptAgent = false;  // GPT Agent detection toggle
         
         const sidebarElement = document.querySelector('.sidebar');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -1451,7 +1456,62 @@
                 const importantClass = entry.has_wait_on ? 'has-wait-on' : (entry.has_error ? 'has-error' : '');
                 
                 let summary = '';
-                if (entry.role) {
+                
+                // Check for GPT Agent pattern first (takes priority if detected)
+                if (detectGptAgent && entry.gpt_agent_role) {
+                    if (entry.gpt_agent_role === 'user') {
+                        // EXTCALL IpdOut - Extract user message or detect tool_call
+                        try {
+                            const contentObj = typeof entry.content === 'string' ? JSON.parse(entry.content) : entry.content;
+                            if (contentObj.IpdMsg && contentObj.IpdMsg.body) {
+                                let body = contentObj.IpdMsg.body;
+                                // Try to parse if it's stringified JSON
+                                if (typeof body === 'string') {
+                                    try {
+                                        body = JSON.parse(body);
+                                    } catch (e) {}
+                                }
+                                // Check if this is a tool_call
+                                if (body.tool_calls || body.tool_call) {
+                                    entry.is_tool_call = true;
+                                    summary = '🔧 Tool Call: ' + (body.tool_name || 'System Function');
+                                } else if (body.user_message) {
+                                    // Extract user_message
+                                    summary = body.user_message;
+                                } else if (typeof body === 'string') {
+                                    summary = body;
+                                } else {
+                                    summary = JSON.stringify(body).substring(0, 100);
+                                }
+                            }
+                        } catch (e) {
+                            summary = 'GPT Agent User Message';
+                        }
+                    } else if (entry.gpt_agent_role === 'assistant') {
+                        // EXTCALL IpdIn - Check for is_tool_call or extract AI response
+                        try {
+                            const contentObj = typeof entry.content === 'string' ? JSON.parse(entry.content) : entry.content;
+                            const contentStr = JSON.stringify(contentObj);
+                            
+                            // Check for is_tool_call
+                            const isToolCallMatch = contentStr.match(/"is_tool_call":\s*true/);
+                            if (isToolCallMatch) {
+                                entry.is_wait_turn = true;
+                                summary = '⏸️ WAIT (Tool Response)';
+                            } else {
+                                // Look for ai_response in the retVars or content
+                                const aiResponseMatch = contentStr.match(/"ai_response":\s*"([^"]+)"/);
+                                if (aiResponseMatch) {
+                                    summary = aiResponseMatch[1];
+                                } else {
+                                    summary = 'GPT Agent Assistant Response';
+                                }
+                            }
+                        } catch (e) {
+                            summary = 'GPT Agent Assistant Response';
+                        }
+                    }
+                } else if (entry.role) {
                     // Special handling for BlockAgent assistant messages
                     if (entry.role === 'assistant') {
                         // First priority: check if metadata.formatted_ai_response exists
@@ -1618,13 +1678,32 @@
                 const agentBadge = isGPTAgent ? 
                     `<span class="badge" style="background: #8b5cf6; color: white;"><span style="font-size: 1.2em;">🤖</span> GPT Agent</span>` : '';
                 
+                // Check if this is a detected GPT Agent pattern entry
+                let gptAgentBadge = '';
+                if (detectGptAgent && entry.gpt_agent_role) {
+                    if (entry.gpt_agent_role === 'user') {
+                        if (entry.is_tool_call) {
+                            gptAgentBadge = `<span class="badge" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; font-weight: bold;"><span style="font-size: 1.2em;">🔧</span> TOOL CALL</span>`;
+                        } else {
+                            gptAgentBadge = `<span class="badge" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; font-weight: bold;"><span style="font-size: 1.2em;">👤</span> USER</span>`;
+                        }
+                    } else if (entry.gpt_agent_role === 'assistant') {
+                        if (entry.is_wait_turn) {
+                            gptAgentBadge = `<span class="badge badge-wait-on">⏸️ WAIT (Tool)</span>`;
+                        } else {
+                            gptAgentBadge = `<span class="badge" style="background: linear-gradient(135deg, #10b981, #059669); color: white; font-weight: bold;"><span style="font-size: 1.2em;">🤖</span> SMARTFLOW AGENT</span>`;
+                        }
+                    }
+                }
+                
                 return `
                     <div class="timeline-entry ${sourceClass} ${roleClass} ${importantClass}">
                         <div class="entry-header" onclick="toggleEntry(${idx})">
                             <div class="entry-left">
                                 <span class="badge badge-${sourceClass}">${sourceClass}</span>
+                                ${gptAgentBadge}
                                 ${isGPTAgent ? agentBadge : ''}
-                                ${entry.role && !isGPTAgent ? `<span class="badge badge-${entry.role}">${entry.role}</span>` : ''}
+                                ${entry.role && !isGPTAgent && !entry.gpt_agent_role ? `<span class="badge badge-${entry.role}">${entry.role}</span>` : ''}
                                 ${entry.role && isGPTAgent ? `<span class="badge badge-${entry.role}">${entry.role}</span>` : ''}
                                 ${indicators}
                                 <span class="entry-summary">${summary}</span>
@@ -2566,6 +2645,68 @@
             }
             renderTimeline();
         });
+        
+        // GPT Agent detection checkbox
+        document.getElementById('detectGptAgentCheckbox').addEventListener('change', (e) => {
+            detectGptAgent = e.target.checked;
+            if (detectGptAgent) {
+                detectAndMarkGptAgentPatterns();
+            } else {
+                // Clear GPT agent markers
+                currentTimeline.forEach(entry => {
+                    if (entry.gpt_agent_role) {
+                        delete entry.gpt_agent_role;
+                    }
+                });
+            }
+            renderTimeline();
+        });
+        
+        // Function to detect GPT Agent patterns in the timeline
+        function detectAndMarkGptAgentPatterns() {
+            // Clear existing GPT agent markers
+            currentTimeline.forEach(entry => {
+                if (entry.gpt_agent_role) {
+                    delete entry.gpt_agent_role;
+                }
+            });
+            
+            // Scan through timeline to find GPT Agent patterns
+            for (let i = 0; i < currentTimeline.length - 1; i++) {
+                const currentEntry = currentTimeline[i];
+                const nextEntry = currentTimeline[i + 1];
+                
+                // Check if current is EXTCALL IpdOut
+                const isCurrentExtcallOut = currentEntry.metadata && 
+                    currentEntry.metadata.PluginId && 
+                    currentEntry.metadata.PluginId.startsWith('EXTCALL_') && 
+                    currentEntry.metadata.logType === 'IpdOut';
+                
+                // Check if next is EXTCALL IpdIn
+                const isNextExtcallIn = nextEntry.metadata && 
+                    nextEntry.metadata.PluginId && 
+                    nextEntry.metadata.PluginId.startsWith('EXTCALL_') && 
+                    nextEntry.metadata.logType === 'IpdIn';
+                
+                // Check if next is NOT a BlockAgent entry
+                const isNextNotBlockAgent = !nextEntry.role;
+                
+                // If we have EXTCALL_Out followed by EXTCALL_In without BlockAgent, it's GPT Agent pattern
+                if (isCurrentExtcallOut && isNextExtcallIn && isNextNotBlockAgent) {
+                    // Extract plugin IDs to see if they match
+                    const currentPluginNum = currentEntry.metadata.PluginId.match(/EXTCALL_(\d+)/)?.[1];
+                    
+                    // Only mark if we found a plugin number
+                    if (currentPluginNum) {
+                        // Mark IpdOut as GPT Agent USER message
+                        currentEntry.gpt_agent_role = 'user';
+                        
+                        // Mark IpdIn as GPT Agent ASSISTANT message
+                        nextEntry.gpt_agent_role = 'assistant';
+                    }
+                }
+            }
+        }
         
         // Action Filter Modal
         function getActionTypes() {
