@@ -2668,13 +2668,14 @@
             currentTimeline.forEach(entry => {
                 if (entry.gpt_agent_role) {
                     delete entry.gpt_agent_role;
+                    delete entry.is_tool_call;
+                    delete entry.is_wait_turn;
                 }
             });
             
             // Scan through timeline to find GPT Agent patterns
-            for (let i = 0; i < currentTimeline.length - 1; i++) {
+            for (let i = 0; i < currentTimeline.length; i++) {
                 const currentEntry = currentTimeline[i];
-                const nextEntry = currentTimeline[i + 1];
                 
                 // Check if current is EXTCALL IpdOut
                 const isCurrentExtcallOut = currentEntry.metadata && 
@@ -2682,28 +2683,47 @@
                     currentEntry.metadata.PluginId.startsWith('EXTCALL_') && 
                     currentEntry.metadata.logType === 'IpdOut';
                 
-                // Check if next is EXTCALL IpdIn
-                const isNextExtcallIn = nextEntry.metadata && 
-                    nextEntry.metadata.PluginId && 
-                    nextEntry.metadata.PluginId.startsWith('EXTCALL_') && 
-                    nextEntry.metadata.logType === 'IpdIn';
+                if (!isCurrentExtcallOut) continue;
                 
-                // Check if next is NOT a BlockAgent entry
-                const isNextNotBlockAgent = !nextEntry.role;
+                // Extract the current EXTCALL number
+                const currentPluginNum = currentEntry.metadata.PluginId.match(/EXTCALL_(\d+)/)?.[1];
+                if (!currentPluginNum) continue;
                 
-                // If we have EXTCALL_Out followed by EXTCALL_In without BlockAgent, it's GPT Agent pattern
-                if (isCurrentExtcallOut && isNextExtcallIn && isNextNotBlockAgent) {
-                    // Extract plugin IDs to see if they match
-                    const currentPluginNum = currentEntry.metadata.PluginId.match(/EXTCALL_(\d+)/)?.[1];
+                // Look ahead to find the next significant entry
+                let foundBlockAgent = false;
+                let matchingIpdIn = null;
+                let matchingIpdInIndex = -1;
+                
+                // Search forward up to 10 entries (to skip debug logs, etc.)
+                for (let j = i + 1; j < Math.min(i + 10, currentTimeline.length); j++) {
+                    const candidateEntry = currentTimeline[j];
                     
-                    // Only mark if we found a plugin number
-                    if (currentPluginNum) {
-                        // Mark IpdOut as GPT Agent USER message
-                        currentEntry.gpt_agent_role = 'user';
-                        
-                        // Mark IpdIn as GPT Agent ASSISTANT message
-                        nextEntry.gpt_agent_role = 'assistant';
+                    // If we find a BlockAgent entry, stop - this is NOT a GPT Agent pattern
+                    if (candidateEntry.role) {
+                        foundBlockAgent = true;
+                        break;
                     }
+                    
+                    // Check if this is an EXTCALL IpdIn
+                    const isCandidateExtcallIn = candidateEntry.metadata && 
+                        candidateEntry.metadata.PluginId && 
+                        candidateEntry.metadata.PluginId.startsWith('EXTCALL_') && 
+                        candidateEntry.metadata.logType === 'IpdIn';
+                    
+                    if (isCandidateExtcallIn) {
+                        matchingIpdIn = candidateEntry;
+                        matchingIpdInIndex = j;
+                        break;
+                    }
+                }
+                
+                // If we found an EXTCALL IpdIn without BlockAgent in between, it's a GPT Agent pattern
+                if (matchingIpdIn && !foundBlockAgent) {
+                    // Mark IpdOut as GPT Agent USER message
+                    currentEntry.gpt_agent_role = 'user';
+                    
+                    // Mark IpdIn as GPT Agent ASSISTANT message
+                    matchingIpdIn.gpt_agent_role = 'assistant';
                 }
             }
         }
